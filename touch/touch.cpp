@@ -48,6 +48,7 @@ int32_t wmain(int32_t argc, wchar_t* argv[])
                             return -1;
                         }
                         settings.FileTime = ft;
+                        settings.UpdateCreate = true;
                         i++;
                     }
                     else
@@ -55,17 +56,27 @@ int32_t wmain(int32_t argc, wchar_t* argv[])
                 }
                 else if ((argument.substr(0, 3) == L"-d=" || argument.substr(0, 3) == L"/d=") && argument.length() > 3)
                 {   // Date string is in this argument
-                    // TODO: Convert string to FILETIME
                     std::wstring DateStamp = argument.substr(3, argument.length() - 3);
                     SYSTEMTIME ft = { 0 };
+                    if (GetDateTimeFromString(DateStamp, ft))
+                    {
+                        std::wcout << L"touch: Syntax error with date argument" << std::endl;
+                        return -1;
+                    }
                     settings.FileTime = ft;
+                    settings.UpdateCreate = true;
                 }
                 else if (argument.substr(0, 7) == L"--date=" && argument.length() > 7)
                 {   // Date string is in this argument
-                    // TODO: Convert string to FILETIME
                     std::wstring DateStamp = argument.substr(7, argument.length() - 7);
                     SYSTEMTIME ft = { 0 };
+                    if (GetDateTimeFromString(DateStamp, ft))
+                    {
+                        std::wcout << L"touch: Syntax error with date argument" << std::endl;
+                        return -1;
+                    }
                     settings.FileTime = ft;
+                    settings.UpdateCreate = true;
                 }
                 else
                     continue;

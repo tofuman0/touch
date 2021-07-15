@@ -22,10 +22,12 @@ struct TOUCH_SETTINGS {
     //FILETIME FileTime;
     SYSTEMTIME FileTime;
     bool CreateFiles;
+    bool UpdateCreate;
     CHANGETYPE ChangeType;
     TOUCH_SETTINGS() :
         FileTime({ 0 }),
         CreateFiles(true),
+        UpdateCreate(false),
         ChangeType(CHANGETYPE::BOTH)
     {}
 };
@@ -76,6 +78,16 @@ void version()
         "Written by Danny Worth" <<
         std::endl;
 }
+template <typename T>
+bool IsEmpty(T& in)
+{
+    int8_t* data = (int8_t*)&in;
+    for (int32_t i = 0; i < sizeof(in); i++)
+    {
+        if (data[i] != 0) return false;
+    }
+    return true;
+}
 void FileQuery(std::wstring& filename, FILETIMES& FileTimes)
 {
     FILETIME ftc, ftm, fta;
@@ -115,18 +127,77 @@ bool GetDateTimeFromString(std::wstring& stamp, SYSTEMTIME& time)
     ZeroMemory(&time, sizeof(SYSTEMTIME));
     return true;
 }
+int32_t UpdateFileTime(std::wstring file, TOUCH_SETTINGS& settings, FILETIMES& FileTimes)
+{
+    int32_t ret = 0;
+    HANDLE rFile(CreateFile(file.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr));
+
+    if (rFile != INVALID_HANDLE_VALUE)
+    {   // File Exists so we need to update the time
+        CloseHandle(rFile);
+        HANDLE oFile(CreateFile(file.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
+        if (oFile == INVALID_HANDLE_VALUE)
+        {
+            wchar_t buf[256];
+            FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                buf, (sizeof(buf) / sizeof(wchar_t)), NULL);
+            std::wcout << L"touch: failed to update file \'" << file.c_str() << L"\' Error: " << buf << std::endl;
+            ret = -1;
+        }
+        
+        SetFileTime(oFile, (settings.UpdateCreate == true) ? &FileTimes.CreateTime : nullptr,
+            (settings.ChangeType == CHANGETYPE::ACCESSED || settings.ChangeType == CHANGETYPE::BOTH) ? &FileTimes.AccessTime : nullptr,
+            (settings.ChangeType == CHANGETYPE::MODIFIED || settings.ChangeType == CHANGETYPE::BOTH) ? &FileTimes.ModifyTime : nullptr
+        );
+        CloseHandle(oFile);
+    }
+    else if (settings.CreateFiles == true)
+    {   // File doesn't exist and we want to create files that don't
+        CloseHandle(rFile);
+        int32_t err = GetLastError();
+        if (err == ERROR_FILE_NOT_FOUND)
+        { // File doesn't exist
+            HANDLE oFile(CreateFile(file.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+            if (oFile == INVALID_HANDLE_VALUE)
+            {
+                wchar_t buf[256];
+                FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                    NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                    buf, (sizeof(buf) / sizeof(wchar_t)), NULL);
+                std::wcout << L"touch: failed to create file \'" << file.c_str() << L"\' Error: " << buf << std::endl;
+                ret = -1;
+            }
+
+            SetFileTime(oFile, (settings.UpdateCreate == true) ? &FileTimes.CreateTime : nullptr,
+                (settings.ChangeType == CHANGETYPE::ACCESSED || settings.ChangeType == CHANGETYPE::BOTH) ? &FileTimes.AccessTime : nullptr,
+                (settings.ChangeType == CHANGETYPE::MODIFIED || settings.ChangeType == CHANGETYPE::BOTH) ? &FileTimes.ModifyTime : nullptr
+            );
+            CloseHandle(oFile);
+        }
+        else
+        { // File file exists but can't be updated
+            wchar_t buf[256];
+            FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                buf, (sizeof(buf) / sizeof(wchar_t)), NULL);
+            std::wcout << L"touch: failed to update file \'" << file.c_str() << L"\' Error: " << buf << std::endl;
+            ret = -1;
+        }
+    }
+    return ret;
+}
 int32_t touch(TOUCH_SETTINGS& settings)
 {
     int32_t ret = 0;
+    FILETIMES FileTimes;
     if (settings.FileReference.length() > 0)
     {   // using file reference for time stamp so -d and -t will be overridden
-        FILETIMES FileTimes;
         HANDLE fRef(CreateFile(settings.FileReference.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr));
 
         if(fRef != INVALID_HANDLE_VALUE)
         {
             GetFileTime(fRef, &FileTimes.CreateTime, &FileTimes.AccessTime, &FileTimes.ModifyTime);
-            FileQuery(settings.FileReference, FileTimes);
         }
         else
         {
@@ -135,53 +206,39 @@ int32_t touch(TOUCH_SETTINGS& settings)
         }
         CloseHandle(fRef);
     }
+    else
+    {
+        if (IsEmpty(settings.FileTime))
+        {   // Use system time
+            GetSystemTime(&settings.FileTime);
+        }
+        SystemTimeToFileTime(&settings.FileTime, &FileTimes.CreateTime);
+        SystemTimeToFileTime(&settings.FileTime, &FileTimes.ModifyTime);
+        SystemTimeToFileTime(&settings.FileTime, &FileTimes.AccessTime);
+    }
     for (auto& file : settings.FileNames)
     {
-        FILETIMES FileTimes;
-        HANDLE rFile(CreateFile(file.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr));
-        if(rFile != INVALID_HANDLE_VALUE)
-        {   // File Exists so we need to update the time
-            // TODO: Update file time
-            GetFileTime(rFile, &FileTimes.CreateTime, &FileTimes.AccessTime, &FileTimes.ModifyTime);
-            FileQuery(file, FileTimes);
-        }
-        else if (settings.CreateFiles == true)
-        {   // File doesn't exist and we want to create files that don't
-            int32_t err = GetLastError();
-            if (err == ERROR_FILE_NOT_FOUND)
-            { // File doesn't exist
-                HANDLE oFile(CreateFile(file.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
-                if(oFile == INVALID_HANDLE_VALUE)
-                {
-                    wchar_t buf[256];
-                    FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                        NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                        buf, (sizeof(buf) / sizeof(wchar_t)), NULL);
-                    std::wcout << L"touch: failed to create file \'" << file.c_str() << L"\' Error: " << buf << std::endl;
-                    ret = -1;
-                }
-                FILETIME mt;
-                FILETIME at;
-                SystemTimeToFileTime(&settings.FileTime, &mt);
-                SystemTimeToFileTime(&settings.FileTime, &at);
+        if (file.find(L'*') != std::wstring::npos || file.find(L'?') != std::wstring::npos)
+        {   // File is wild card so need to loop through files that match the wildcard
+            WIN32_FIND_DATA fd;
+            HANDLE h = FindFirstFile(file.c_str(), &fd);
 
-                SetFileTime(oFile, nullptr,
-                    (settings.ChangeType == CHANGETYPE::ACCESSED || settings.ChangeType == CHANGETYPE::BOTH) ? &at : nullptr,
-                    (settings.ChangeType == CHANGETYPE::MODIFIED || settings.ChangeType == CHANGETYPE::BOTH) ? &mt : nullptr
-                );
-                CloseHandle(oFile);
+            if (h == INVALID_HANDLE_VALUE)
+            {
+                continue; // no files found
             }
-            else
-            { // File file exists but can't be updated
-                wchar_t buf[256];
-                FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                    NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                    buf, (sizeof(buf) / sizeof(wchar_t)), NULL);
-                std::wcout << L"touch: failed to update file \'" << file.c_str() << L"\' Error: " << buf << std::endl;
-                ret = -1;
+            while (1)
+            {
+                ret = UpdateFileTime(fd.cFileName, settings, FileTimes);
+
+                if (FindNextFile(h, &fd) == FALSE)
+                    break;
             }
         }
-        CloseHandle(rFile);
+        else
+        {
+            ret = UpdateFileTime(file, settings, FileTimes);
+        }
     }
     return ret;
 }
