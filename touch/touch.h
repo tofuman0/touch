@@ -10,7 +10,12 @@
 #include <chrono>
 
 #define VERSION "1.0"
+#define TOUCH_ERROR                 0b10000000000000000000000000000000
+#define TOUCH_ERROR_FILE_LOCKED     0b11000000000000000000000000000000
+#define TOUCH_ERROR_FILE_NOTFOUND   0b10100000000000000000000000000000
+#define TOUCH_ERROR_FILE_CREATE     0b10010000000000000000000000000000
 
+const WORD MonthDays[12]{ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 enum class CHANGETYPE {
     BOTH,
     ACCESSED,
@@ -19,7 +24,6 @@ enum class CHANGETYPE {
 struct TOUCH_SETTINGS {
     std::vector<std::wstring> FileNames;
     std::wstring FileReference;
-    //FILETIME FileTime;
     SYSTEMTIME FileTime;
     bool CreateFiles;
     bool UpdateCreate;
@@ -104,7 +108,105 @@ void FileQuery(std::wstring& filename, FILETIMES& FileTimes)
     std::wcout << L"Access Time: " << std::setfill(L'0') << std::setw(2) << sta.wDay << L"/" << std::setfill(L'0') << std::setw(2) << sta.wMonth << L"/" << sta.wYear << L" " << std::setfill(L'0') << std::setw(2) << sta.wHour << L":" << std::setfill(L'0') << std::setw(2) << sta.wMinute << L":" << std::setfill(L'0') << std::setw(2) << sta.wSecond << std::endl;
     std::wcout << std::endl;
 }
-bool GetDateTimeFromString(std::wstring& stamp, SYSTEMTIME& time)
+void TakeDays(uint32_t days, SYSTEMTIME& time)
+{
+    FILETIME ft;
+    ULARGE_INTEGER temptime;
+    time.wHour = 0;
+    time.wMinute = 0;
+    SystemTimeToFileTime(&time, &ft);
+    temptime.HighPart = ft.dwHighDateTime;
+    temptime.LowPart = ft.dwLowDateTime;
+    temptime.QuadPart -= (uint64_t)(days * 86400ull * 1000ull * 1000ull * 10ull);
+    ft.dwHighDateTime = temptime.HighPart;
+    ft.dwLowDateTime = temptime.LowPart;
+    FileTimeToSystemTime(&ft, &time);
+}
+void AddDays(uint32_t days, SYSTEMTIME& time)
+{
+    FILETIME ft;
+    ULARGE_INTEGER temptime;
+    SystemTimeToFileTime(&time, &ft);
+    temptime.HighPart = ft.dwHighDateTime;
+    temptime.LowPart = ft.dwLowDateTime;
+    temptime.QuadPart += (uint64_t)(days * 86400ull * 1000ull * 1000ull * 10ull);
+    ft.dwHighDateTime = temptime.HighPart;
+    ft.dwLowDateTime = temptime.LowPart;
+    FileTimeToSystemTime(&ft, &time);
+}
+bool GetDateFromString(std::wstring& stamp, SYSTEMTIME& time)
+{   // Return true if error
+    if (stamp == L"today")
+    {
+        GetSystemTime(&time);
+        time.wHour = 0;
+        time.wMinute = 0;
+        time.wSecond = 0;
+        return false;
+    }
+    else if (stamp == L"tomorrow")
+    {
+        GetSystemTime(&time);
+        time.wHour = 0;
+        time.wMinute = 0;
+        time.wSecond = 0;
+        AddDays(1, time);
+        return false;
+    }
+    else if (stamp == L"yesterday")
+    {
+        GetSystemTime(&time);
+        time.wHour = 0;
+        time.wMinute = 0;
+        time.wSecond = 0;
+        TakeDays(1, time);
+        return false;
+    }
+    else if (stamp.find(L" day ago") != std::wstring::npos)
+    {
+        uint32_t days = 0;
+        if (swscanf_s(stamp.c_str(), L"%u day ago", &days) == 1)
+        {
+            GetSystemTime(&time);
+            time.wHour = 0;
+            time.wMinute = 0;
+            time.wSecond = 0;
+            TakeDays(days, time);
+            return false;
+        }
+        return true;
+    }
+    else if (stamp.find(L" days ago") != std::wstring::npos)
+    {
+        uint32_t days = 0;
+        if (swscanf_s(stamp.c_str(), L"%u days ago", &days) == 1)
+        {
+            GetSystemTime(&time);
+            time.wHour = 0;
+            time.wMinute = 0;
+            time.wSecond = 0;
+            TakeDays(days, time);
+            return false;
+        }
+        return true;
+    }
+    else if (stamp.find(L" days time") != std::wstring::npos)
+    {
+        uint32_t days = 0;
+        if (swscanf_s(stamp.c_str(), L"%u days time", &days) == 1)
+        {
+            GetSystemTime(&time);
+            time.wHour = 0;
+            time.wMinute = 0;
+            time.wSecond = 0;
+            AddDays(days, time);
+            return false;
+        }
+        return true;
+    }
+    return true;
+}
+bool GetTimeFromString(std::wstring& stamp, SYSTEMTIME& time)
 {   // Return true if error
     if (swscanf_s(stamp.c_str(), L"%04hd%02hd%02hd%02hd%02hd.%02hd", &time.wYear, &time.wMonth, &time.wDay, &time.wHour, &time.wMinute, &time.wSecond) == 6)
     {
@@ -131,6 +233,12 @@ int32_t UpdateFileTime(std::wstring file, TOUCH_SETTINGS& settings, FILETIMES& F
 {
     int32_t ret = 0;
     HANDLE rFile(CreateFile(file.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr));
+    
+    // Correct for Local Time
+    FILETIME cft, aft, mft;
+    LocalFileTimeToFileTime(&FileTimes.CreateTime, &cft);
+    LocalFileTimeToFileTime(&FileTimes.AccessTime, &aft);
+    LocalFileTimeToFileTime(&FileTimes.ModifyTime, &mft);
 
     if (rFile != INVALID_HANDLE_VALUE)
     {   // File Exists so we need to update the time
@@ -143,12 +251,12 @@ int32_t UpdateFileTime(std::wstring file, TOUCH_SETTINGS& settings, FILETIMES& F
                 NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
                 buf, (sizeof(buf) / sizeof(wchar_t)), NULL);
             std::wcout << L"touch: failed to update file \'" << file.c_str() << L"\' Error: " << buf << std::endl;
-            ret = -1;
+            ret = TOUCH_ERROR_FILE_LOCKED;
         }
         
-        SetFileTime(oFile, (settings.UpdateCreate == true) ? &FileTimes.CreateTime : nullptr,
-            (settings.ChangeType == CHANGETYPE::ACCESSED || settings.ChangeType == CHANGETYPE::BOTH) ? &FileTimes.AccessTime : nullptr,
-            (settings.ChangeType == CHANGETYPE::MODIFIED || settings.ChangeType == CHANGETYPE::BOTH) ? &FileTimes.ModifyTime : nullptr
+        SetFileTime(oFile, (settings.UpdateCreate == true) ? &cft : nullptr,
+            (settings.ChangeType == CHANGETYPE::ACCESSED || settings.ChangeType == CHANGETYPE::BOTH) ? &aft : nullptr,
+            (settings.ChangeType == CHANGETYPE::MODIFIED || settings.ChangeType == CHANGETYPE::BOTH) ? &mft : nullptr
         );
         CloseHandle(oFile);
     }
@@ -166,12 +274,12 @@ int32_t UpdateFileTime(std::wstring file, TOUCH_SETTINGS& settings, FILETIMES& F
                     NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
                     buf, (sizeof(buf) / sizeof(wchar_t)), NULL);
                 std::wcout << L"touch: failed to create file \'" << file.c_str() << L"\' Error: " << buf << std::endl;
-                ret = -1;
+                ret = TOUCH_ERROR_FILE_CREATE;
             }
 
-            SetFileTime(oFile, (settings.UpdateCreate == true) ? &FileTimes.CreateTime : nullptr,
-                (settings.ChangeType == CHANGETYPE::ACCESSED || settings.ChangeType == CHANGETYPE::BOTH) ? &FileTimes.AccessTime : nullptr,
-                (settings.ChangeType == CHANGETYPE::MODIFIED || settings.ChangeType == CHANGETYPE::BOTH) ? &FileTimes.ModifyTime : nullptr
+            SetFileTime(oFile, (settings.UpdateCreate == true) ? &cft : nullptr,
+                (settings.ChangeType == CHANGETYPE::ACCESSED || settings.ChangeType == CHANGETYPE::BOTH) ? &aft : nullptr,
+                (settings.ChangeType == CHANGETYPE::MODIFIED || settings.ChangeType == CHANGETYPE::BOTH) ? &mft : nullptr
             );
             CloseHandle(oFile);
         }
@@ -182,7 +290,7 @@ int32_t UpdateFileTime(std::wstring file, TOUCH_SETTINGS& settings, FILETIMES& F
                 NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
                 buf, (sizeof(buf) / sizeof(wchar_t)), NULL);
             std::wcout << L"touch: failed to update file \'" << file.c_str() << L"\' Error: " << buf << std::endl;
-            ret = -1;
+            ret = TOUCH_ERROR_FILE_LOCKED;
         }
     }
     return ret;
@@ -202,7 +310,7 @@ int32_t touch(TOUCH_SETTINGS& settings)
         else
         {
             std::cout << L"touch: failed to get attributes of \'" << settings.FileReference.c_str() << L"\': No such file or directory" << std::endl;
-            return -1;
+            return TOUCH_ERROR_FILE_NOTFOUND;
         }
         CloseHandle(fRef);
     }
@@ -229,7 +337,7 @@ int32_t touch(TOUCH_SETTINGS& settings)
             }
             while (1)
             {
-                ret = UpdateFileTime(fd.cFileName, settings, FileTimes);
+                ret |= UpdateFileTime(fd.cFileName, settings, FileTimes);
 
                 if (FindNextFile(h, &fd) == FALSE)
                     break;
@@ -237,7 +345,7 @@ int32_t touch(TOUCH_SETTINGS& settings)
         }
         else
         {
-            ret = UpdateFileTime(file, settings, FileTimes);
+            ret |= UpdateFileTime(file, settings, FileTimes);
         }
     }
     return ret;

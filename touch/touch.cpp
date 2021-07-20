@@ -42,7 +42,7 @@ int32_t wmain(int32_t argc, wchar_t* argv[])
                         // TODO: Convert string to FILETIME
                         std::wstring DateStamp = argv[i + 1];
                         SYSTEMTIME ft = { 0 };
-                        if (GetDateTimeFromString(DateStamp, ft))
+                        if (GetDateFromString(DateStamp, ft))
                         {
                             std::wcout << L"touch: Syntax error with date argument" << std::endl;
                             return -1;
@@ -58,7 +58,7 @@ int32_t wmain(int32_t argc, wchar_t* argv[])
                 {   // Date string is in this argument
                     std::wstring DateStamp = argument.substr(3, argument.length() - 3);
                     SYSTEMTIME ft = { 0 };
-                    if (GetDateTimeFromString(DateStamp, ft))
+                    if (GetDateFromString(DateStamp, ft))
                     {
                         std::wcout << L"touch: Syntax error with date argument" << std::endl;
                         return -1;
@@ -70,7 +70,7 @@ int32_t wmain(int32_t argc, wchar_t* argv[])
                 {   // Date string is in this argument
                     std::wstring DateStamp = argument.substr(7, argument.length() - 7);
                     SYSTEMTIME ft = { 0 };
-                    if (GetDateTimeFromString(DateStamp, ft))
+                    if (GetDateFromString(DateStamp, ft))
                     {
                         std::wcout << L"touch: Syntax error with date argument" << std::endl;
                         return -1;
@@ -120,9 +120,9 @@ int32_t wmain(int32_t argc, wchar_t* argv[])
                 {
                     std::wstring TimeStamp = argv[i + 1];
                     SYSTEMTIME ft = { 0 };
-                    if (GetDateTimeFromString(TimeStamp, ft))
+                    if (GetTimeFromString(TimeStamp, ft))
                     {
-                        std::wcout << L"touch: Syntax error with date argument" << std::endl;
+                        std::wcout << L"touch: Syntax error with time argument" << std::endl;
                         return -1;
                     }
                     settings.FileTime = ft;
