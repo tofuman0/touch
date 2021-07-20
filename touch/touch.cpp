@@ -8,7 +8,7 @@ int32_t wmain(int32_t argc, wchar_t* argv[])
 	if (argc == 1)
 	{
         help();
-        return 0;
+        return TOUCH_OK;
 	}
     for (int32_t i = 1; i < argc; i++)
     {
@@ -45,7 +45,7 @@ int32_t wmain(int32_t argc, wchar_t* argv[])
                         if (GetDateFromString(DateStamp, ft))
                         {
                             std::wcout << L"touch: Syntax error with date argument" << std::endl;
-                            return -1;
+                            return TOUCH_ERROR_SYNTAX;
                         }
                         settings.FileTime = ft;
                         settings.UpdateCreate = true;
@@ -61,7 +61,7 @@ int32_t wmain(int32_t argc, wchar_t* argv[])
                     if (GetDateFromString(DateStamp, ft))
                     {
                         std::wcout << L"touch: Syntax error with date argument" << std::endl;
-                        return -1;
+                        return TOUCH_ERROR_SYNTAX;
                     }
                     settings.FileTime = ft;
                     settings.UpdateCreate = true;
@@ -73,7 +73,7 @@ int32_t wmain(int32_t argc, wchar_t* argv[])
                     if (GetDateFromString(DateStamp, ft))
                     {
                         std::wcout << L"touch: Syntax error with date argument" << std::endl;
-                        return -1;
+                        return TOUCH_ERROR_SYNTAX;
                     }
                     settings.FileTime = ft;
                     settings.UpdateCreate = true;
@@ -123,7 +123,7 @@ int32_t wmain(int32_t argc, wchar_t* argv[])
                     if (GetTimeFromString(TimeStamp, ft))
                     {
                         std::wcout << L"touch: Syntax error with time argument" << std::endl;
-                        return -1;
+                        return TOUCH_ERROR_SYNTAX;
                     }
                     settings.FileTime = ft;
                     i++;
@@ -133,12 +133,12 @@ int32_t wmain(int32_t argc, wchar_t* argv[])
             else if (argument == L"-?" || argument == L"/?" || argument == L"--help")
             {
                 help();
-                return 0;
+                return TOUCH_OK;
             }
             else if (argument == L"--version")
             {
                 version();
-                return 0;
+                return TOUCH_OK;
             }
         }
         else
@@ -152,5 +152,5 @@ int32_t wmain(int32_t argc, wchar_t* argv[])
         help();
     else
         return touch(settings);
-	return 0;
+	return TOUCH_OK;
 }

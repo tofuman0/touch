@@ -10,10 +10,12 @@
 #include <chrono>
 
 #define VERSION "1.0"
+#define TOUCH_OK                    0
 #define TOUCH_ERROR                 0b10000000000000000000000000000000
 #define TOUCH_ERROR_FILE_LOCKED     0b11000000000000000000000000000000
 #define TOUCH_ERROR_FILE_NOTFOUND   0b10100000000000000000000000000000
 #define TOUCH_ERROR_FILE_CREATE     0b10010000000000000000000000000000
+#define TOUCH_ERROR_SYNTAX          0b10001000000000000000000000000000
 
 const WORD MonthDays[12]{ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 enum class CHANGETYPE {
@@ -136,6 +138,7 @@ void AddDays(uint32_t days, SYSTEMTIME& time)
 }
 bool GetDateFromString(std::wstring& stamp, SYSTEMTIME& time)
 {   // Return true if error
+    // TODO: Complete implementation
     if (stamp == L"today")
     {
         GetSystemTime(&time);
