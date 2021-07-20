@@ -4,10 +4,7 @@
 #include <string.h>
 #include <vector>
 #include <iostream>
-#include <chrono>
 #include <iomanip>
-#include <fstream>
-#include <chrono>
 
 #define VERSION "1.0"
 #define TOUCH_OK                    0
