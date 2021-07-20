@@ -337,7 +337,8 @@ int32_t touch(TOUCH_SETTINGS& settings)
             }
             while (1)
             {
-                ret |= UpdateFileTime(fd.cFileName, settings, FileTimes);
+                if (wcscmp(fd.cFileName, L".") && wcscmp(fd.cFileName, L".."))
+                    ret |= UpdateFileTime(fd.cFileName, settings, FileTimes);
 
                 if (FindNextFile(h, &fd) == FALSE)
                     break;
