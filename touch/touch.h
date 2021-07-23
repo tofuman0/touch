@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include <stdint.h>
 #include <string.h>
+#include <string>
 #include <vector>
 #include <iostream>
 #include <iomanip>
@@ -14,7 +15,6 @@
 #define TOUCH_ERROR_FILE_CREATE     0b10010000000000000000000000000000
 #define TOUCH_ERROR_SYNTAX          0b10001000000000000000000000000000
 
-const WORD MonthDays[12]{ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 enum class CHANGETYPE {
     BOTH,
     ACCESSED,
@@ -133,6 +133,31 @@ void AddDays(uint32_t days, SYSTEMTIME& time)
     ft.dwLowDateTime = temptime.LowPart;
     FileTimeToSystemTime(&ft, &time);
 }
+std::wstring toLower(std::wstring& in)
+{
+    std::wstring lowercase;
+    lowercase.resize(in.length());
+    uint32_t i = 0;
+    for (i = 0; i < in.length(); i++)
+    {
+        lowercase[i] = ::tolower(in[i]);
+    }
+    //lowercase[i] = 0;
+    return lowercase;
+}
+std::vector<std::wstring> explode(std::wstring& in, const std::wstring& delimiter)
+{
+    std::vector<std::wstring> tokens(0);
+    wchar_t* token = nullptr, *buffer = nullptr;
+    token = wcstok_s((wchar_t*)in.c_str(), delimiter.c_str(), &buffer);
+    while(token)
+    {
+        tokens.push_back(token);
+        token = wcstok_s(NULL, delimiter.c_str(), &buffer);
+    }
+
+    return tokens;
+}
 bool GetDateFromString(std::wstring& stamp, SYSTEMTIME& time)
 {   // Return true if error
     // TODO: Complete implementation
@@ -142,6 +167,11 @@ bool GetDateFromString(std::wstring& stamp, SYSTEMTIME& time)
         time.wHour = 0;
         time.wMinute = 0;
         time.wSecond = 0;
+        return false;
+    }
+    else if (stamp == L"now")
+    {
+        GetSystemTime(&time);
         return false;
     }
     else if (stamp == L"tomorrow")
@@ -200,6 +230,84 @@ bool GetDateFromString(std::wstring& stamp, SYSTEMTIME& time)
             time.wMinute = 0;
             time.wSecond = 0;
             AddDays(days, time);
+            return false;
+        }
+        return true;
+    }
+    else if (stamp.find(L" ") != std::wstring::npos)
+    {   // If space is in stamp it may contain a date
+        std::vector<std::wstring> tokens = explode(stamp, L" ");
+        if (tokens.size() == 3)
+        {
+            std::wstring MMM = toLower(tokens[1]);
+            if(MMM == L"jan" || MMM == L"january")            time.wMonth = 1;
+            else if (MMM == L"feb" || MMM == L"february")     time.wMonth = 2;
+            else if (MMM == L"mar" || MMM == L"march")        time.wMonth = 3;
+            else if (MMM == L"apr" || MMM == L"april")        time.wMonth = 4;
+            else if (MMM == L"may" || MMM == L"may")          time.wMonth = 5;
+            else if (MMM == L"jun" || MMM == L"june")         time.wMonth = 6;
+            else if (MMM == L"jul" || MMM == L"july")         time.wMonth = 7;
+            else if (MMM == L"aug" || MMM == L"august")       time.wMonth = 8;
+            else if (MMM == L"sept" || MMM == L"september")   time.wMonth = 9;
+            else if (MMM == L"oct" || MMM == L"october")      time.wMonth = 10;
+            else if (MMM == L"nov" || MMM == L"november")     time.wMonth = 11;
+            else if (MMM == L"dec" || MMM == L"december")     time.wMonth = 12;
+            else return true;
+
+            time.wHour = 0;
+            time.wMinute = 0;
+            time.wSecond = 0;
+
+            time.wDay = std::stoi(tokens[0]);
+            time.wYear = std::stoi(tokens[2]);
+
+            FILETIME ft;
+            SystemTimeToFileTime(&time, &ft);
+            FileTimeToLocalFileTime(&ft, &ft);
+            FileTimeToSystemTime(&ft, &time);
+            
+            return false;
+        }
+        else if (tokens.size() == 4)
+        {
+            std::wstring MMM = toLower(tokens[1]);
+            if (MMM == L"jan" || MMM == L"january")            time.wMonth = 1;
+            else if (MMM == L"feb" || MMM == L"february")     time.wMonth = 2;
+            else if (MMM == L"mar" || MMM == L"march")        time.wMonth = 3;
+            else if (MMM == L"apr" || MMM == L"april")        time.wMonth = 4;
+            else if (MMM == L"may" || MMM == L"may")          time.wMonth = 5;
+            else if (MMM == L"jun" || MMM == L"june")         time.wMonth = 6;
+            else if (MMM == L"jul" || MMM == L"july")         time.wMonth = 7;
+            else if (MMM == L"aug" || MMM == L"august")       time.wMonth = 8;
+            else if (MMM == L"sept" || MMM == L"september")   time.wMonth = 9;
+            else if (MMM == L"oct" || MMM == L"october")      time.wMonth = 10;
+            else if (MMM == L"nov" || MMM == L"november")     time.wMonth = 11;
+            else if (MMM == L"dec" || MMM == L"december")     time.wMonth = 12;
+            else return true;
+
+            std::vector<std::wstring> timeValues = explode(tokens[3], L":");
+
+            if (timeValues.size() > 1 && timeValues.size() < 4)
+            {
+                time.wHour = std::stoi(timeValues[0]);
+                time.wMinute = std::stoi(timeValues[1]);
+                time.wSecond = (timeValues.size() == 2) ? 0 : std::stoi(timeValues[2]);
+            }
+            else
+            {
+                time.wHour = 0;
+                time.wMinute = 0;
+                time.wSecond = 0;
+            }
+
+            time.wDay = std::stoi(tokens[0]);
+            time.wYear = std::stoi(tokens[2]);
+
+            FILETIME ft;
+            SystemTimeToFileTime(&time, &ft);
+            FileTimeToLocalFileTime(&ft, &ft);
+            FileTimeToSystemTime(&ft, &time);
+            
             return false;
         }
         return true;
@@ -319,10 +427,19 @@ int32_t touch(TOUCH_SETTINGS& settings)
         if (IsEmpty(settings.FileTime))
         {   // Use system time
             GetSystemTime(&settings.FileTime);
+            SystemTimeToFileTime(&settings.FileTime, &FileTimes.CreateTime);
+            SystemTimeToFileTime(&settings.FileTime, &FileTimes.ModifyTime);
+            SystemTimeToFileTime(&settings.FileTime, &FileTimes.AccessTime);
+            FileTimeToLocalFileTime(&FileTimes.CreateTime, &FileTimes.CreateTime);
+            FileTimeToLocalFileTime(&FileTimes.ModifyTime, &FileTimes.ModifyTime);
+            FileTimeToLocalFileTime(&FileTimes.AccessTime, &FileTimes.AccessTime);
         }
-        SystemTimeToFileTime(&settings.FileTime, &FileTimes.CreateTime);
-        SystemTimeToFileTime(&settings.FileTime, &FileTimes.ModifyTime);
-        SystemTimeToFileTime(&settings.FileTime, &FileTimes.AccessTime);
+        else
+        {
+            SystemTimeToFileTime(&settings.FileTime, &FileTimes.CreateTime);
+            SystemTimeToFileTime(&settings.FileTime, &FileTimes.ModifyTime);
+            SystemTimeToFileTime(&settings.FileTime, &FileTimes.AccessTime);
+        }
     }
     for (auto& file : settings.FileNames)
     {
@@ -342,6 +459,51 @@ int32_t touch(TOUCH_SETTINGS& settings)
 
                 if (FindNextFile(h, &fd) == FALSE)
                     break;
+            }
+        }
+        if (file.find(L'{') != std::wstring::npos && file.find(L'}') != std::wstring::npos)
+        {   // Range of files specified i.e. {1..99} or {a..z}
+            std::vector<std::wstring> FileNamesRange;
+            std::wstring RangeString = file.substr(file.find(L'{')  + 1, file.find(L'}') - 1 - file.find(L'{'));
+            std::vector<std::wstring> RangeValues = explode(RangeString, L"..");
+            if (RangeValues.size() == 2)
+            {
+                if(std::isalpha(RangeValues[0].c_str()[0]))
+                {
+                    wchar_t First = RangeValues[0].c_str()[0];
+                    wchar_t Second = RangeValues[1].c_str()[0];
+                    if (First <= Second && ((::isupper(First) && ::isupper(Second)) || (::islower(First) && ::islower(Second))))
+                    {
+                        while (First <= Second)
+                        {
+                            std::wstring RangeFileName = file.substr(0, file.find(L'{')) + First++ + file.substr(file.find(L'}') + 1);
+                            ret |= UpdateFileTime(RangeFileName, settings, FileTimes);
+                        }
+                    }
+                    else
+                        return TOUCH_ERROR_SYNTAX;
+                }
+                else if (std::isdigit(RangeValues[0].c_str()[0]))
+                {
+                    uint32_t First = std::stoi(RangeValues[0]);
+                    uint32_t Second = std::stoi(RangeValues[1]);
+                    if (First <= Second)
+                    {
+                        if (Second - First > 100)
+                        {
+                            std::wcout << L"touch: WARNING! Range is over 100. This may take some time. Press CTRL+C to cancel." << std::endl;
+                        }
+                        while (First <= Second)
+                        {
+                            std::wstring RangeFileName = file.substr(0, file.find(L'{')) + std::to_wstring(First++) + file.substr(file.find(L'}') + 1);
+                            ret |= UpdateFileTime(RangeFileName, settings, FileTimes);
+                        }
+                    }
+                    else
+                        return TOUCH_ERROR_SYNTAX;
+                }
+                else
+                    return TOUCH_ERROR_SYNTAX;
             }
         }
         else
