@@ -143,10 +143,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="touch.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="Touch.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="touch.h" />
+    <ClInclude Include="main.h" />
+    <ClInclude Include="Touch.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
