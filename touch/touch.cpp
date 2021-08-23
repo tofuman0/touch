@@ -62,54 +62,57 @@ int32_t Touch::touch()
                     break;
             }
         }
-        if (file.find(L'{') != std::wstring::npos && file.find(L'}') != std::wstring::npos)
-        {   // Range of files specified i.e. {1..99} or {a..z}
-            std::vector<std::wstring> FileNamesRange;
-            std::wstring RangeString = file.substr(file.find(L'{') + 1, file.find(L'}') - 1 - file.find(L'{'));
-            std::vector<std::wstring> RangeValues = explode(RangeString, L"..");
-            if (RangeValues.size() == 2)
-            {
-                if (std::isalpha(RangeValues[0].c_str()[0]))
-                {
-                    wchar_t First = RangeValues[0].c_str()[0];
-                    wchar_t Second = RangeValues[1].c_str()[0];
-                    if (First <= Second && ((::isupper(First) && ::isupper(Second)) || (::islower(First) && ::islower(Second))))
-                    {
-                        while (First <= Second)
-                        {
-                            std::wstring RangeFileName = file.substr(0, file.find(L'{')) + First++ + file.substr(file.find(L'}') + 1);
-                            ret |= UpdateFileTime(RangeFileName, FileTimes);
-                        }
-                    }
-                    else
-                        return TOUCH_ERROR_SYNTAX;
-                }
-                else if (std::isdigit(RangeValues[0].c_str()[0]))
-                {
-                    uint32_t First = std::stoi(RangeValues[0]);
-                    uint32_t Second = std::stoi(RangeValues[1]);
-                    if (First <= Second)
-                    {
-                        if (Second - First > 100)
-                        {
-                            std::wcout << L"touch: WARNING! Range is over 100. This may take some time. Press CTRL+C to cancel." << std::endl;
-                        }
-                        while (First <= Second)
-                        {
-                            std::wstring RangeFileName = file.substr(0, file.find(L'{')) + std::to_wstring(First++) + file.substr(file.find(L'}') + 1);
-                            ret |= UpdateFileTime(RangeFileName, FileTimes);
-                        }
-                    }
-                    else
-                        return TOUCH_ERROR_SYNTAX;
-                }
-                else
-                    return TOUCH_ERROR_SYNTAX;
-            }
-        }
         else
         {
-            ret |= UpdateFileTime(file, FileTimes);
+            if (file.find(L'{') != std::wstring::npos && file.find(L'}') != std::wstring::npos)
+            {   // Range of files specified i.e. {1..99} or {a..z}
+                std::vector<std::wstring> FileNamesRange;
+                std::wstring RangeString = file.substr(file.find(L'{') + 1, file.find(L'}') - 1 - file.find(L'{'));
+                std::vector<std::wstring> RangeValues = explode(RangeString, L"..");
+                if (RangeValues.size() == 2)
+                {
+                    if (std::isalpha(RangeValues[0].c_str()[0]))
+                    {
+                        wchar_t First = RangeValues[0].c_str()[0];
+                        wchar_t Second = RangeValues[1].c_str()[0];
+                        if (First <= Second && ((::isupper(First) && ::isupper(Second)) || (::islower(First) && ::islower(Second))))
+                        {
+                            while (First <= Second)
+                            {
+                                std::wstring RangeFileName = file.substr(0, file.find(L'{')) + First++ + file.substr(file.find(L'}') + 1);
+                                ret |= UpdateFileTime(RangeFileName, FileTimes);
+                            }
+                        }
+                        else
+                            return TOUCH_ERROR_SYNTAX;
+                    }
+                    else if (std::isdigit(RangeValues[0].c_str()[0]))
+                    {
+                        uint32_t First = std::stoi(RangeValues[0]);
+                        uint32_t Second = std::stoi(RangeValues[1]);
+                        if (First <= Second)
+                        {
+                            if (Second - First > 100)
+                            {
+                                std::wcout << L"touch: WARNING! Range is over 100. This may take some time. Press CTRL+C to cancel." << std::endl;
+                            }
+                            while (First <= Second)
+                            {
+                                std::wstring RangeFileName = file.substr(0, file.find(L'{')) + std::to_wstring(First++) + file.substr(file.find(L'}') + 1);
+                                ret |= UpdateFileTime(RangeFileName, FileTimes);
+                            }
+                        }
+                        else
+                            return TOUCH_ERROR_SYNTAX;
+                    }
+                    else
+                        return TOUCH_ERROR_SYNTAX;
+                }
+            }
+            else
+            {
+                ret |= UpdateFileTime(file, FileTimes);
+            }
         }
     }
     return ret;

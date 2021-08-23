@@ -21,6 +21,8 @@ public:
         ACCESSED,
         MODIFIED
     };
+ 
+private:
     struct TOUCH_SETTINGS {
         std::vector<std::wstring> FileNames;
         std::wstring FileReference;
@@ -46,8 +48,6 @@ public:
             AccessTime({ 0 })
         {}
     };
-
-private:
     TOUCH_SETTINGS m_Settings;
 
 public:
