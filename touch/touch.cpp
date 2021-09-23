@@ -10,7 +10,7 @@ int32_t Touch::touch()
     FILETIMES FileTimes;
     if (m_Settings.FileReference.length() > 0)
     {   // using file reference for time stamp so -d and -t will be overridden
-        HANDLE fRef(CreateFile(m_Settings.FileReference.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr));
+        HANDLE fRef(CreateFileW(m_Settings.FileReference.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr));
 
         if (fRef != INVALID_HANDLE_VALUE)
         {
@@ -374,7 +374,7 @@ bool Touch::GetTimeFromString(std::wstring& stamp, SYSTEMTIME& time)
 int32_t Touch::UpdateFileTime(std::wstring file, FILETIMES& FileTimes)
 {
     int32_t ret = 0;
-    HANDLE rFile(CreateFile(file.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr));
+    HANDLE rFile(CreateFileW(file.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr));
 
     // Correct for Local Time
     FILETIME cft, aft, mft;
@@ -385,7 +385,7 @@ int32_t Touch::UpdateFileTime(std::wstring file, FILETIMES& FileTimes)
     if (rFile != INVALID_HANDLE_VALUE)
     {   // File Exists so we need to update the time
         CloseHandle(rFile);
-        HANDLE oFile(CreateFile(file.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
+        HANDLE oFile(CreateFileW(file.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
         if (oFile == INVALID_HANDLE_VALUE)
         {
             wchar_t buf[256];
@@ -404,11 +404,11 @@ int32_t Touch::UpdateFileTime(std::wstring file, FILETIMES& FileTimes)
     }
     else if (m_Settings.CreateFiles == true)
     {   // File doesn't exist and we want to create files that don't
-        CloseHandle(rFile);
         int32_t err = GetLastError();
+        CloseHandle(rFile);
         if (err == ERROR_FILE_NOT_FOUND)
         { // File doesn't exist
-            HANDLE oFile(CreateFile(file.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+            HANDLE oFile(CreateFileW(file.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
             if (oFile == INVALID_HANDLE_VALUE)
             {
                 wchar_t buf[256];

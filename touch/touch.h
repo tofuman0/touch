@@ -63,7 +63,7 @@ public:
     std::wstring FileReference() { return m_Settings.FileReference; };
     void FileReference(std::wstring FileReference) { m_Settings.FileReference = FileReference; };
     void AddFile(std::wstring FileName) { m_Settings.FileNames.push_back(FileName); }
-    int32_t FileCount() { return m_Settings.FileNames.size(); }
+    size_t FileCount() { return m_Settings.FileNames.size(); }
     bool GetDateFromString(std::wstring& stamp, SYSTEMTIME& time);
     bool GetTimeFromString(std::wstring& stamp, SYSTEMTIME& time);
     int32_t touch();
